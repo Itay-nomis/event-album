@@ -62,10 +62,18 @@ def db():
 async def lifespan(_: FastAPI):
     with db() as conn:
         conn.execute(SCHEMA)
-    try:
-        s3.head_bucket(Bucket=S3_BUCKET)
-    except ClientError:
-        s3.create_bucket(Bucket=S3_BUCKET)
+    # Storage may still be starting up: retry for up to ~60s
+    for attempt in range(30):
+        try:
+            try:
+                s3.head_bucket(Bucket=S3_BUCKET)
+            except ClientError:
+                s3.create_bucket(Bucket=S3_BUCKET)
+            break
+        except Exception:
+            if attempt == 29:
+                raise
+            await asyncio.sleep(2)
     yield
 
 

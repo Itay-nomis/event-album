@@ -8,7 +8,7 @@ This is a hands-on DevOps learning project: the app is the workload, the infrast
 ## Architecture
 
 ```
- Guest phone ──upload──► API (FastAPI) ──original──► Object storage (MinIO / S3)
+ Guest phone ──upload──► API (FastAPI) ──original──► Object storage (S3)
                            │    │
                            │    └──job──► Redis queue ──► Worker (resize, blur filter)
                            │                                   │
@@ -24,7 +24,7 @@ This is a hands-on DevOps learning project: the app is the workload, the infrast
 | `worker`   | Processes images in the background               |
 | `postgres` | Events and photo metadata                        |
 | `redis`    | Job queue + pub/sub for live updates             |
-| `minio`    | S3-compatible storage for the image files        |
+| `storage`  | SeaweedFS, S3-compatible storage for the images  |
 
 ## Run locally
 
@@ -34,7 +34,6 @@ docker compose up --build
 ```
 
 - App: http://localhost:8000
-- MinIO console: http://localhost:9001 (credentials from `.env`)
 
 To test from a phone on the same Wi-Fi, open `http://<your-PC-LAN-IP>:8000` on the PC when creating the event,
 so the QR code points at an address the phone can reach.
