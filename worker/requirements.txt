@@ -1,0 +1,5 @@
+psycopg[binary]==3.2.3
+redis==5.2.1
+boto3==1.35.90
+pillow==11.1.0
+pillow-heif==0.21.0

@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>העלאת תמונות</title>
+<style>
+  :root { --bg:#faf7f2; --fg:#2b2622; --muted:#8a8178; --accent:#b5651d; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:system-ui,"Segoe UI",Arial,sans-serif; background:var(--bg); color:var(--fg);
+         min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center;
+         padding:24px 16px; text-align:center; }
+  h1 { font-size:26px; margin:0 0 6px; }
+  p { color:var(--muted); margin:0 0 28px; }
+  label.pick { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px;
+               width:min(320px,100%); aspect-ratio:1; border-radius:28px; background:var(--accent); color:#fff;
+               font-size:22px; font-weight:600; cursor:pointer; box-shadow:0 12px 40px rgba(181,101,29,.35); }
+  label.pick span { font-size:64px; }
+  input { display:none; }
+  #status { margin-top:24px; font-size:17px; min-height:1.5em; }
+  .bar { width:min(320px,100%); height:8px; background:#efe8df; border-radius:8px; overflow:hidden; margin:12px auto 0; }
+  .bar div { height:100%; width:0; background:var(--accent); transition:width .2s; }
+</style>
+</head>
+<body>
+<h1 id="title">...</h1>
+<p>בחרו תמונות והן יופיעו על המסך באולם</p>
+<label class="pick"><span>📷</span>העלאת תמונות<input id="files" type="file" accept="image/*" multiple></label>
+<div id="status"></div>
+<div class="bar"><div id="bar"></div></div>
+<script>
+const code = location.pathname.split('/')[2];
+fetch(`/api/events/${code}`).then(r => r.ok ? r.json() : Promise.reject())
+  .then(ev => document.getElementById('title').textContent = ev.name)
+  .catch(() => document.getElementById('title').textContent = 'האירוע לא נמצא');
+
+document.getElementById('files').onchange = async (e) => {
+  const files = [...e.target.files];
+  const status = document.getElementById('status'), bar = document.getElementById('bar');
+  let done = 0, failed = 0;
+  for (const f of files) {
+    status.textContent = `מעלה ${done + 1} מתוך ${files.length}...`;
+    const fd = new FormData(); fd.append('file', f);
+    try {
+      const r = await fetch(`/api/events/${code}/photos`, {method: 'POST', body: fd});
+      if (!r.ok) failed++;
+    } catch { failed++; }
+    done++;
+    bar.style.width = `${(done / files.length) * 100}%`;
+  }
+  status.textContent = failed ? `הועלו ${done - failed}, נכשלו ${failed}` : `תודה! ${done} תמונות הועלו 🎉`;
+  e.target.value = '';
+};
+</script>
+</body>
+</html>

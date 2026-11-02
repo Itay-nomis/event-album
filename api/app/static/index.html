@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>אלבום אירוע</title>
+<style>
+  :root { --bg:#faf7f2; --fg:#2b2622; --muted:#8a8178; --accent:#b5651d; --card:#fff; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:system-ui,"Segoe UI",Arial,sans-serif; background:var(--bg); color:var(--fg);
+         min-height:100vh; display:grid; place-items:center; padding:16px; }
+  .card { background:var(--card); border-radius:20px; padding:32px; max-width:440px; width:100%;
+          box-shadow:0 10px 40px rgba(60,40,20,.08); text-align:center; }
+  h1 { margin:0 0 8px; font-size:28px; }
+  p { color:var(--muted); margin:0 0 24px; }
+  input { width:100%; padding:14px; font-size:17px; border:1px solid #e3dcd3; border-radius:12px; margin-bottom:12px; }
+  button, a.btn { display:block; width:100%; padding:14px; font-size:17px; border:0; border-radius:12px;
+                  background:var(--accent); color:#fff; cursor:pointer; text-decoration:none; margin-top:8px; }
+  a.btn.secondary { background:#efe8df; color:var(--fg); }
+  #qr img { width:220px; height:220px; margin:8px auto 4px; display:block; }
+  .code { font-size:22px; letter-spacing:4px; font-weight:700; }
+  .hidden { display:none; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div id="create">
+    <h1>📸 אלבום אירוע</h1>
+    <p>האורחים סורקים, מצלמים, והתמונות מופיעות על המסך בזמן אמת.</p>
+    <input id="name" placeholder="שם האירוע, למשל: החתונה של דנה ויוסי">
+    <button id="go">יצירת אירוע</button>
+  </div>
+  <div id="ready" class="hidden">
+    <h1 id="ev-name"></h1>
+    <p>קוד האירוע: <span class="code" id="ev-code"></span></p>
+    <div id="qr"></div>
+    <p>את ה-QR מדפיסים או מציגים לאורחים</p>
+    <a class="btn" id="show-link" target="_blank">פתיחת המצגת למסך</a>
+    <a class="btn secondary" id="upload-link" target="_blank">עמוד ההעלאה של האורחים</a>
+  </div>
+</div>
+<script>
+document.getElementById('go').onclick = async () => {
+  const name = document.getElementById('name').value;
+  const res = await fetch('/api/events', {
+    method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({name})
+  });
+  const ev = await res.json();
+  document.getElementById('ev-name').textContent = ev.name;
+  document.getElementById('ev-code').textContent = ev.code;
+  document.getElementById('qr').innerHTML = `<img src="/api/events/${ev.code}/qr" alt="QR">`;
+  document.getElementById('show-link').href = `/e/${ev.code}/show`;
+  document.getElementById('upload-link').href = `/e/${ev.code}`;
+  document.getElementById('create').classList.add('hidden');
+  document.getElementById('ready').classList.remove('hidden');
+};
+</script>
+</body>
+</html>
