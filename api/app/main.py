@@ -184,7 +184,7 @@ def media(key: str):
     try:
         obj = s3.get_object(Bucket=S3_BUCKET, Key=key)
     except ClientError:
-        raise HTTPException(404)
+        raise HTTPException(404) from None
     return StreamingResponse(
         obj["Body"].iter_chunks(),
         media_type=obj.get("ContentType", "image/jpeg"),

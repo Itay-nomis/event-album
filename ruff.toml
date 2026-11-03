@@ -1,0 +1,10 @@
+target-version = "py312"
+line-length = 120
+
+[lint]
+# Explicit rule set so local and CI runs give the same results.
+# E/W = pycodestyle, F = pyflakes (real bugs), I = import order, B = bugbear, UP = modern syntax
+select = ["E", "W", "F", "I", "B", "UP"]
+ignore = [
+    "B008",  # FastAPI's File(...)/Depends(...) defaults are the intended pattern
+]
