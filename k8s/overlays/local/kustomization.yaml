@@ -29,7 +29,7 @@ configMapGenerator:
 images:
 - name: event-album-api
   newName: ghcr.io/itay-nomis/event-album-api
-  newTag: bootstrap
+  newTag: 551d8a051c41b9856354b76456891052ce19cb07
 - name: event-album-worker
   newName: ghcr.io/itay-nomis/event-album-worker
-  newTag: bootstrap
+  newTag: 551d8a051c41b9856354b76456891052ce19cb07
