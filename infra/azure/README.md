@@ -31,6 +31,7 @@ for your region. A public LoadBalancer IP for Traefik adds a little more.
 ```powershell
 winget install --id Microsoft.AzureCLI -e
 winget install --id Hashicorp.Terraform -e
+winget install --id Helm.Helm -e          # used below to install Traefik on AKS
 az login
 cd infra\azure
 copy terraform.tfvars.example terraform.tfvars   # set budget_email

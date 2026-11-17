@@ -37,7 +37,10 @@ Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
 ```powershell
 git clone https://github.com/Itay-nomis/event-album.git
 cd event-album
+git switch feature/platform
 ```
+
+עד שממזגים (שלב 2), כל הקוד החדש - הסקריפטים, ה-manifests והמדריך הזה - נמצא רק בענף `feature/platform`; ב-`main` יש עדיין רק את האפליקציה הבסיסית. (כבר יש לך clone? הרץ בתוכו `git fetch` ואז `git switch feature/platform`.)
 
 **מה לומדים כאן:** סביבת עבודה ניתנת לשחזור. כל הכלים מותקנים מפקודה אחת (winget) עם גרסאות ידועות - בדיוק כמו שמכינים שרת או runner של CI, ולא "התקנתי משהו פעם ואני לא זוכר מה".
 
@@ -75,6 +78,12 @@ ArgoCD (שלב 4) מסנכרן את מה שנמצא ב-**main** ב-GitHub. לכ�
 
 1. ב-GitHub: **Pull requests ← New pull request**, base: `main`, compare: `feature/platform`.
 2. חכה שה-CI (הלשונית **Checks**) יהיה ירוק, עבור על השינויים, ואז **Merge**.
+3. במחשב, חזור ל-main ומשוך את המיזוג:
+
+```powershell
+git switch main
+git pull
+```
 
 **מה לומדים כאן:** Pull Request כשער איכות. ה-CI רץ על ה-PR לפני שמשהו נכנס ל-main: lint, בדיקות, build של ה-images, ובדיקת תקינות של Terraform ו-YAML של Kubernetes. main תמיד "ראוי לפריסה".
 
@@ -100,17 +109,20 @@ GitHub ← הפרופיל שלך ← **Packages** ← `event-album-api` ← **Pa
 ## שלב 4: Kubernetes מקומי עם ArgoCD
 
 ```powershell
+git switch main
 git pull
 .\scripts\local-up.ps1
 ```
 
-**הרצה ראשונה לפני שה-CI דחף images?** (למשל אם עוד לא מיזגת) הרץ עם `-LocalImages`: הסקריפט בונה את ה-images אצלך ומייבא אותם ל-cluster בדיוק בשם ובתג ש-ArgoCD יחפש, כך שלא צריך GHCR בכלל:
+**ה-CI עוד לא דחף images, או שה-packages עדיין פרטיים?** (למשל מיד אחרי המיזוג, כשהריצה הראשונה של ה-CI על main עדיין רצה) הרץ עם `-LocalImages`: הסקריפט בונה את ה-images אצלך ומייבא אותם ל-cluster בדיוק בשם ובתג ש-ArgoCD יחפש, כך שלא צריך GHCR בכלל:
 
 ```powershell
 .\scripts\local-up.ps1 -LocalImages
 ```
 
 (חשוב: `git pull` לפני, כדי שהתג אצלך יהיה זהה לתג ב-main ב-GitHub.)
+
+> גם עם `-LocalImages` הענף **חייב** להיות ממוזג ל-main: ArgoCD קורא את ה-manifests מ-main ב-GitHub, לא מהמחשב שלך. ובפעם הבאה שה-CI יעדכן את התג, ה-cluster ימשוך את ה-images מ-GHCR - לכן עדיין צריך לפתוח אותם לציבור (שלב 3), או להריץ שוב `git pull` ו-`.\scripts\local-up.ps1 -LocalImages`.
 
 **ריפו פרטי?** צור ב-GitHub ← Settings ← Developer settings ← **Fine-grained token** עם הרשאת *Contents: Read-only* לריפו הזה בלבד, והרץ:
 
