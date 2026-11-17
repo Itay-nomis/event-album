@@ -6,7 +6,11 @@ metadata:
   name: kube-prometheus-stack
   namespace: argocd
   annotations:
-    argocd.argoproj.io/sync-wave: "-2" # CRDs (ServiceMonitor, PrometheusRule...) first
+    # Created first. Note: ArgoCD does not wait for a child Application to be healthy before
+    # the next wave (no Application health check by default), so the order alone does not
+    # guarantee the CRDs exist when event-album syncs - its SkipDryRunOnMissingResource +
+    # retry settings cover that gap.
+    argocd.argoproj.io/sync-wave: "-2"
   finalizers:
     - resources-finalizer.argocd.argoproj.io
 spec:
