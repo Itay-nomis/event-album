@@ -58,6 +58,8 @@ docker compose up --build
 - בדיקות בריאות: http://localhost:8000/healthz ו-http://localhost:8000/readyz
 - עצירה: `Ctrl+C`, ואז `docker compose down` (הוסף `-v` כדי למחוק גם את הנתונים).
 
+**לתרגול מעמיק של השלב הזה:** פתח בדפדפן את `docs/devops-runbook.html` (Runbook באנגלית עם צעדים לסימון). הוא מראה איך מציצים לתוך כל שירות, עוצרים את ה-worker בכוונה כדי לראות את התור מתמלא, ובודקים שהנתונים שורדים restart. הוא נכתב לפני הענף הזה, אז פרטים קטנים בו (כמו גרסת SeaweedFS) כבר עודכנו בקוד.
+
 **מה לומדים כאן:** קונטיינרים ו-Compose. כל שירות (API, worker, Postgres, Redis, SeaweedFS) רץ בקונטיינר נפרד עם גרסה נעולה (לא `latest`), וה-healthchecks קובעים מתי שירות "מוכן". זה אותו image שירוץ אחר כך ב-Kubernetes.
 
 ### בדיקה מהטלפון עם קישור ציבורי (גם עם Compose)

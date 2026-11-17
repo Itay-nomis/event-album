@@ -1,0 +1,633 @@
+<title>Event Album Runbook</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,500..800&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: sticky stage rail on the left (stacks on phones), one reading column of checkable steps */
+:root {
+  --bg: #f3f6f6;
+  --surface: #ffffff;
+  --fg: #142424;
+  --muted: #566b6b;
+  --line: #d5dfdf;
+  --accent: #0e6b6b;
+  --accent-soft: #dcefee;
+  --warn: #8a5a00;
+  --warn-soft: #fbf0d9;
+  --code-bg: #0f1f22;
+  --code-fg: #d6eeec;
+  --code-dim: #7fa3a1;
+  --done: #2f7d4f;
+  --f-display: "Archivo", "Arial Narrow", system-ui, sans-serif;
+  --f-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0d1718; --surface: #142224; --fg: #e2eeed; --muted: #93abaa; --line: #26393b;
+    --accent: #5cc4bd; --accent-soft: #173836; --warn: #f0bf62; --warn-soft: #33290f;
+    --code-bg: #081012; --code-fg: #d6eeec; --code-dim: #6f9391; --done: #6fcf97;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0d1718; --surface: #142224; --fg: #e2eeed; --muted: #93abaa; --line: #26393b;
+  --accent: #5cc4bd; --accent-soft: #173836; --warn: #f0bf62; --warn-soft: #33290f;
+  --code-bg: #081012; --code-fg: #d6eeec; --code-dim: #6f9391; --done: #6fcf97;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg);
+  font: 15px/1.6 var(--f-body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 1120px; margin: 0 auto; padding-block: 40px 80px; display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 48px; }
+header.top { grid-column: 1 / -1; display: grid; gap: 10px; max-width: 72ch; }
+.eyebrow { font: 600 12px/1 var(--f-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
+h1 { font: 800 clamp(34px, 6vw, 52px)/1.02 var(--f-display); font-stretch: 80%; margin: 0; text-wrap: balance; letter-spacing: -.01em; }
+.lede { color: var(--muted); font-size: 17px; margin: 0; }
+.lede code, p code, li code { font: 13px var(--f-mono); background: var(--accent-soft); padding: 1px 5px; border-radius: 4px; color: var(--fg); }
+
+/* Rail */
+nav.rail { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 20px); align-self: start; display: grid; gap: 4px; }
+nav.rail .label { font: 600 11px var(--f-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+nav.rail a { display: grid; grid-template-columns: 28px 1fr auto; gap: 8px; align-items: center; padding: 8px 10px; border-radius: 8px; color: var(--fg); text-decoration: none; font-size: 14px; }
+nav.rail a:hover, nav.rail a:focus-visible { background: var(--surface); outline: none; }
+nav.rail a:focus-visible { box-shadow: 0 0 0 2px var(--accent); }
+nav.rail .n { font: 600 12px var(--f-mono); color: var(--muted); }
+nav.rail .count { font: 12px var(--f-mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+nav.rail a.complete .count { color: var(--done); }
+nav.rail a.complete .n::after { content: " ✓"; color: var(--done); }
+.overall { margin-top: 14px; display: grid; gap: 6px; font: 12px var(--f-mono); color: var(--muted); }
+.bar { height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; }
+.bar > i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .3s; }
+.reset { justify-self: start; background: none; border: 0; color: var(--muted); font: 12px var(--f-mono); padding: 0; cursor: pointer; text-decoration: underline; }
+.reset:focus-visible { outline: 2px solid var(--accent); }
+
+/* Stages */
+main { display: grid; gap: 64px; min-width: 0; }
+section.stage { display: grid; gap: 20px; scroll-margin-top: 20px; }
+.stage-head { display: grid; gap: 6px; border-top: 2px solid var(--fg); padding-top: 14px; }
+.stage-head .tag { font: 600 12px var(--f-mono); color: var(--accent); letter-spacing: .06em; text-transform: uppercase; }
+.stage-head h2 { font: 750 30px/1.1 var(--f-display); font-stretch: 85%; margin: 0; text-wrap: balance; }
+.stage-head p { margin: 0; color: var(--muted); max-width: 68ch; }
+.status { font: 600 11px var(--f-mono); padding: 3px 8px; border-radius: 999px; text-transform: uppercase; letter-spacing: .06em; justify-self: start; }
+.status.now { background: var(--accent); color: var(--bg); }
+.status.next { background: var(--accent-soft); color: var(--accent); }
+.status.later { border: 1px solid var(--line); color: var(--muted); }
+.status.doneish { background: var(--accent-soft); color: var(--done); }
+
+/* Steps */
+ol.steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; counter-reset: s; }
+ol.steps > li { counter-increment: s; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 18px 20px; display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 4px 14px; }
+ol.steps > li.checked { border-color: color-mix(in srgb, var(--done) 45%, var(--line)); }
+ol.steps > li.checked h3 { color: var(--muted); }
+.chk { width: 22px; height: 22px; margin: 2px 0 0; accent-color: var(--done); cursor: pointer; }
+.step-body { display: grid; gap: 10px; min-width: 0; }
+.step-body h3 { margin: 0; font: 650 17px/1.35 var(--f-body); }
+.step-body h3::before { content: counter(s) ". "; font-family: var(--f-mono); font-size: 14px; color: var(--muted); }
+.step-body p, .step-body ul { margin: 0; max-width: 68ch; }
+.step-body ul { padding-left: 20px; display: grid; gap: 4px; }
+.why { color: var(--muted); font-size: 14px; }
+.check { font-size: 14px; border-left: 3px solid var(--done); padding: 4px 0 4px 12px; }
+.check b, .warnbox b { font: 600 11px var(--f-mono); letter-spacing: .06em; text-transform: uppercase; display: block; margin-bottom: 2px; }
+.check b { color: var(--done); }
+.warnbox { font-size: 14px; background: var(--warn-soft); border-radius: 8px; padding: 10px 14px; }
+.warnbox b { color: var(--warn); }
+
+/* Code */
+.code { position: relative; background: var(--code-bg); border-radius: 8px; min-width: 0; }
+.code pre { margin: 0; padding: 14px 16px; padding-right: 72px; overflow-x: auto; color: var(--code-fg); font: 13px/1.6 var(--f-mono); }
+.code .file { display: block; font: 11px var(--f-mono); color: var(--code-dim); padding: 10px 16px 0; letter-spacing: .04em; }
+.code .c { color: var(--code-dim); }
+.copy { position: absolute; top: 8px; right: 8px; background: transparent; color: var(--code-dim); border: 1px solid #2e4a4c; border-radius: 6px; font: 11px var(--f-mono); padding: 4px 8px; cursor: pointer; }
+.copy:hover, .copy:focus-visible { color: var(--code-fg); border-color: var(--code-dim); outline: none; }
+
+/* Later-stage outlines */
+.outline { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 18px 20px; display: grid; gap: 12px; }
+.outline h3 { margin: 0; font: 600 12px var(--f-mono); color: var(--muted); letter-spacing: .06em; text-transform: uppercase; }
+.outline ul { margin: 0; padding-left: 20px; display: grid; gap: 6px; max-width: 70ch; }
+
+table.trouble { width: 100%; border-collapse: collapse; font-size: 14px; }
+.tablewrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
+table.trouble th, table.trouble td { text-align: left; padding: 12px 16px; border-bottom: 1px solid var(--line); vertical-align: top; }
+table.trouble tr:last-child td { border-bottom: 0; }
+table.trouble th { font: 600 11px var(--f-mono); color: var(--muted); letter-spacing: .06em; text-transform: uppercase; }
+table.trouble td:first-child { font: 13px var(--f-mono); width: 38%; }
+table.trouble code { font: 12.5px var(--f-mono); background: var(--accent-soft); padding: 1px 5px; border-radius: 4px; }
+
+@media (max-width: 820px) {
+  .wrap { grid-template-columns: minmax(0, 1fr); gap: 32px; padding-block: 24px 60px; }
+  nav.rail { position: static; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px; }
+  ol.steps > li { padding: 14px; gap: 4px 10px; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; scroll-behavior: auto !important; } }
+html { scroll-behavior: smooth; }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <span class="eyebrow">C:\projects\event-album · DevOps runbook</span>
+    <h1>Event Album Runbook</h1>
+    <p class="lede">A step-by-step path from "it runs on my PC" to a scaled, monitored deployment. Tick each step as you go. Your progress is saved in this browser. Stage 1 matters most: get every service running and learn how to look inside each one.</p>
+  </header>
+
+  <nav class="rail" aria-label="Stages">
+    <span class="label">Stages</span>
+    <a href="#s0"><span class="n">00</span><span>Prerequisites</span><span class="count" data-for="s0"></span></a>
+    <a href="#s1"><span class="n">01</span><span>Run locally</span><span class="count" data-for="s1"></span></a>
+    <a href="#s2"><span class="n">02</span><span>CI pipeline</span><span class="count" data-for="s2"></span></a>
+    <a href="#s3"><span class="n">03</span><span>Cloud + Terraform</span><span class="count" data-for="s3"></span></a>
+    <a href="#s4"><span class="n">04</span><span>Kubernetes + GitOps</span><span class="count" data-for="s4"></span></a>
+    <a href="#s5"><span class="n">05</span><span>Scale</span><span class="count" data-for="s5"></span></a>
+    <a href="#s6"><span class="n">06</span><span>Observability</span><span class="count" data-for="s6"></span></a>
+    <a href="#trouble"><span class="n">??</span><span>Troubleshooting</span><span class="count"></span></a>
+    <div class="overall">
+      <span id="overall-text">0 of 0 steps</span>
+      <div class="bar"><i id="overall-bar"></i></div>
+      <button class="reset" id="reset" type="button">Clear my progress</button>
+    </div>
+  </nav>
+
+  <main>
+    <!-- ============ STAGE 0 ============ -->
+    <section class="stage" id="s0">
+      <div class="stage-head">
+        <span class="tag">Stage 00</span>
+        <h2>Prerequisites</h2>
+        <p>Docker Desktop wasn't running when I checked your machine, so start here.</p>
+      </div>
+      <ol class="steps">
+        <li data-id="s0-docker">
+          <input type="checkbox" class="chk" id="c-s0-docker" aria-label="Done: Start Docker Desktop">
+          <div class="step-body">
+            <h3>Start Docker Desktop</h3>
+            <p>Open Docker Desktop from the Start menu and wait until it says <i>Engine running</i>. It should use the WSL 2 backend (Settings → General).</p>
+            <div class="code"><button class="copy" type="button">Copy</button><pre>docker version
+docker compose version</pre></div>
+            <div class="check"><b>Check</b>The output of <code>docker version</code> has a <code>Server:</code> section. If you see <code>failed to connect to the docker API … dockerDesktopLinuxEngine</code>, the engine still isn't running.</div>
+          </div>
+        </li>
+        <li data-id="s0-git">
+          <input type="checkbox" class="chk" id="c-s0-git" aria-label="Done: Sync the repo">
+          <div class="step-body">
+            <h3>Sync the repo with GitHub</h3>
+            <p>Your repo is <code>github.com/Itay-nomis/event-album</code> and has 2 commits so far.</p>
+            <div class="code"><button class="copy" type="button">Copy</button><pre>cd C:\projects\event-album
+git status
+git pull</pre></div>
+            <div class="check"><b>Check</b><code>git status</code> says the working tree is clean and up to date with <code>origin/main</code>.</div>
+          </div>
+        </li>
+      </ol>
+    </section>
+
+    <!-- ============ STAGE 1 ============ -->
+    <section class="stage" id="s1">
+      <div class="stage-head">
+        <span class="tag">Stage 01</span>
+        <h2>Run locally with Docker Compose</h2>
+        <span class="status now">Do this now</span>
+        <p>The README marks this stage as done, but you haven't run it on this machine yet. The goal is to see all 5 services healthy, follow one photo through the whole system, and break things on purpose so you learn how the pieces depend on each other.</p>
+      </div>
+      <ol class="steps">
+        <li data-id="s1-env">
+          <input type="checkbox" class="chk" id="c-s1-env" aria-label="Done: Review .env">
+          <div class="step-body">
+            <h3>Review the <code>.env</code> file</h3>
+            <p>A <code>.env</code> already exists and matches <code>.env.example</code>. All the containers read their settings from it. If you change the database password, change it in <b>both</b> <code>POSTGRES_PASSWORD</code> and <code>DATABASE_URL</code>.</p>
+            <div class="code"><span class="file">.env</span><button class="copy" type="button">Copy</button><pre>POSTGRES_USER=album
+POSTGRES_PASSWORD=change-me
+POSTGRES_DB=album
+DATABASE_URL=postgresql://album:change-me@postgres:5432/album
+REDIS_URL=redis://redis:6379/0
+S3_ENDPOINT=http://storage:8333
+S3_ACCESS_KEY=local
+S3_SECRET_KEY=local
+S3_BUCKET=photos</pre></div>
+            <p class="why">Hostnames like <code>postgres</code>, <code>redis</code> and <code>storage</code> work because Compose puts every service on one network and gives each one a DNS name that matches its service name.</p>
+            <div class="warnbox"><b>Gotcha</b>Postgres sets the password only the first time it creates its data volume. If you change the password later, you have to recreate the volume with <code>docker compose down -v</code>, which deletes all the data.</div>
+          </div>
+        </li>
+        <li data-id="s1-config">
+          <input type="checkbox" class="chk" id="c-s1-config" aria-label="Done: Validate the compose file">
+          <div class="step-body">
+            <h3>Validate the Compose file</h3>
+            <div class="code"><button class="copy" type="button">Copy</button><pre>docker compose config</pre></div>
+            <p class="why">This prints the final config with every <code>${VARIABLE}</code> filled in. Get in the habit of running it before every <code>up</code>.</p>
+            <div class="check"><b>Check</b>You get no <code>variable is not set</code> warnings, and <code>pg_isready -U album -d album</code> appears in the Postgres healthcheck.</div>
+          </div>
+        </li>
+        <li data-id="s1-up">
+          <input type="checkbox" class="chk" id="c-s1-up" aria-label="Done: Build and start">
+          <div class="step-body">
+            <h3>Build the images and start the stack</h3>
+            <div class="code"><button class="copy" type="button">Copy</button><pre>docker compose up --build -d
+docker compose ps</pre></div>
+            <p class="why">The first build downloads Python and installs the packages, which takes a few minutes. <code>-d</code> runs the stack in the background. Startup order comes from <code>depends_on</code>: the API and worker wait until Postgres and Redis report <i>healthy</i>.</p>
+            <div class="check"><b>Check</b>In <code>docker compose ps</code>, postgres, redis and api show <code>(healthy)</code>, and worker and storage show <code>Up</code>. The API takes about 10 seconds to report healthy because its Dockerfile healthcheck polls <code>/healthz</code>.</div>
+          </div>
+        </li>
+        <li data-id="s1-health">
+          <input type="checkbox" class="chk" id="c-s1-health" aria-label="Done: Call the health endpoint">
+          <div class="step-body">
+            <h3>Call the health endpoint</h3>
+            <div class="code"><button class="copy" type="button">Copy</button><pre><span class="c"># In PowerShell, type curl.exe. Plain "curl" is an alias for Invoke-WebRequest.</span>
+curl.exe -i http://localhost:8000/healthz</pre></div>
+            <div class="check"><b>Check</b>You get <code>HTTP/1.1 200 OK</code>. Later, CI and Kubernetes will call this same endpoint.</div>
+          </div>
+        </li>
+        <li data-id="s1-logs">
+          <input type="checkbox" class="chk" id="c-s1-logs" aria-label="Done: Follow logs">
+          <div class="step-body">
+            <h3>Follow the logs in a second terminal</h3>
+            <div class="code"><button class="copy" type="button">Copy</button><pre>cd C:\projects\event-album
+docker compose logs -f api worker</pre></div>
+            <p class="why">Keep this terminal open for the rest of the stage, so you can watch each request and job as it happens.</p>
+          </div>
+        </li>
+        <li data-id="s1-e2e">
+          <input type="checkbox" class="chk" id="c-s1-e2e" aria-label="Done: Follow one photo end to end">
+          <div class="step-body">
+            <h3>Follow one photo through the system</h3>
+            <ul>
+              <li>Open <code>http://localhost:8000</code> and create an event. Write down its code.</li>
+              <li>Open the venue screen (<code>/e/&lt;code&gt;/show</code>) in one tab and the upload page (<code>/e/&lt;code&gt;</code>) in another.</li>
+              <li>Upload a photo. To use your phone instead, open the app as <code>http://&lt;your-PC-LAN-IP&gt;:8000</code> (find the IP with <code>ipconfig</code>) when you create the event, so the QR code points at an address your phone can reach.</li>
+            </ul>
+            <div class="check"><b>Check</b>The API logs a <code>POST …/photos</code> request, the worker logs that it processed the job, and the photo appears on the venue screen without a page refresh.</div>
+          </div>
+        </li>
+        <li data-id="s1-inspect">
+          <input type="checkbox" class="chk" id="c-s1-inspect" aria-label="Done: Look inside each service">
+          <div class="step-body">
+            <h3>Look inside each service</h3>
+            <p>Each command below runs inside a running container with <code>docker compose exec</code>.</p>
+            <div class="code"><button class="copy" type="button">Copy</button><pre><span class="c"># Postgres: events and photo info</span>
+docker compose exec postgres psql -U album -d album -c "select count(*) from photos;"
+
+<span class="c"># Redis: jobs waiting in the queue (0 means the worker has caught up)</span>
+docker compose exec redis redis-cli llen jobs
+
+<span class="c"># Redis: watch live "new photo" messages for one event (Ctrl+C to stop)</span>
+docker compose exec redis redis-cli subscribe event:&lt;code&gt;
+
+<span class="c"># Storage: list the files in the S3 bucket</span>
+docker compose exec api python -c "import boto3,os; s=boto3.client('s3',endpoint_url=os.environ['S3_ENDPOINT'],aws_access_key_id='local',aws_secret_access_key='local'); [print(o['Key']) for o in s.list_objects_v2(Bucket='photos').get('Contents',[])]"</pre></div>
+            <div class="check"><b>Check</b>The photo count matches the number of uploads, and the bucket holds both the original image and the processed one.</div>
+          </div>
+        </li>
+        <li data-id="s1-break">
+          <input type="checkbox" class="chk" id="c-s1-break" aria-label="Done: Break the worker on purpose">
+          <div class="step-body">
+            <h3>Stop the worker on purpose and watch the queue</h3>
+            <div class="code"><button class="copy" type="button">Copy</button><pre>docker compose stop worker
+<span class="c"># now upload 3 photos from the browser</span>
+docker compose exec redis redis-cli llen jobs     <span class="c"># → 3</span>
+docker compose start worker
+docker compose exec redis redis-cli llen jobs     <span class="c"># → 0, and the photos show up</span></pre></div>
+            <p class="why">This is the main reason the app uses a queue. Uploads keep working while the worker is down, and nothing gets lost. Stage 5 builds on this: it adds workers automatically when the queue grows.</p>
+          </div>
+        </li>
+        <li data-id="s1-persist">
+          <input type="checkbox" class="chk" id="c-s1-persist" aria-label="Done: Test data persistence">
+          <div class="step-body">
+            <h3>Check that data survives a restart</h3>
+            <div class="code"><button class="copy" type="button">Copy</button><pre>docker compose down       <span class="c"># removes the containers, keeps the volumes</span>
+docker compose up -d
+docker volume ls          <span class="c"># event-album_pgdata, event-album_storagedata</span></pre></div>
+            <div class="check"><b>Check</b>Your event and its photos are still there. Containers are disposable, and the data lives in the named volumes.</div>
+            <div class="warnbox"><b>Careful</b><code>docker compose down -v</code> also deletes the volumes, which wipes the database and every photo.</div>
+          </div>
+        </li>
+        <li data-id="s1-pin">
+          <input type="checkbox" class="chk" id="c-s1-pin" aria-label="Done: Pin image versions">
+          <div class="step-body">
+            <h3>Pin the storage image version</h3>
+            <p>In <code>docker-compose.yml</code>, <code>chrislusf/seaweedfs:latest</code> means you can get a different version on every pull, so a build that works today can break tomorrow. Look up the current release tag on Docker Hub and use that tag in place of <code>latest</code>. Postgres and Redis are already pinned to major versions (<code>16-alpine</code> and <code>7-alpine</code>).</p>
+            <div class="code"><span class="file">docker-compose.yml</span><button class="copy" type="button">Copy</button><pre>  storage:
+    image: chrislusf/seaweedfs:&lt;exact-tag&gt;</pre></div>
+          </div>
+        </li>
+        <li data-id="s1-commit">
+          <input type="checkbox" class="chk" id="c-s1-commit" aria-label="Done: Commit">
+          <div class="step-body">
+            <h3>Commit and push</h3>
+            <div class="code"><button class="copy" type="button">Copy</button><pre>git add docker-compose.yml
+git commit -m "Pin SeaweedFS image version"
+git push</pre></div>
+            <p class="why"><code>.env</code> is listed in <code>.gitignore</code>, so your secrets stay out of Git. Only <code>.env.example</code> gets committed.</p>
+          </div>
+        </li>
+      </ol>
+    </section>
+
+    <!-- ============ STAGE 2 ============ -->
+    <section class="stage" id="s2">
+      <div class="stage-head">
+        <span class="tag">Stage 02</span>
+        <h2>CI with GitHub Actions</h2>
+        <span class="status next">Next</span>
+        <p>On every push, GitHub lints the code, starts the whole stack, checks that <code>/healthz</code> answers, and on <code>main</code> publishes the api and worker images to GitHub Container Registry (GHCR).</p>
+      </div>
+      <ol class="steps">
+        <li data-id="s2-branch">
+          <input type="checkbox" class="chk" id="c-s2-branch" aria-label="Done: Create a branch">
+          <div class="step-body">
+            <h3>Work on a branch</h3>
+            <div class="code"><button class="copy" type="button">Copy</button><pre>git switch -c ci-pipeline</pre></div>
+          </div>
+        </li>
+        <li data-id="s2-lint">
+          <input type="checkbox" class="chk" id="c-s2-lint" aria-label="Done: Lint locally">
+          <div class="step-body">
+            <h3>Run the linter locally first</h3>
+            <p>Ruff is a fast Python linter. Running it in a container means you don't need Python installed on Windows.</p>
+            <div class="code"><button class="copy" type="button">Copy</button><pre>docker run --rm -v "${PWD}:/io" -w /io ghcr.io/astral-sh/ruff:latest check api worker</pre></div>
+            <div class="check"><b>Check</b>You see <code>All checks passed!</code>. The rules it checks are set in <code>ruff.toml</code> at the project root, so you get the same results on your PC and in CI. To fix simple problems automatically, add <code>--fix</code>.</div>
+          </div>
+        </li>
+        <li data-id="s2-workflow">
+          <input type="checkbox" class="chk" id="c-s2-workflow" aria-label="Done: Add the workflow">
+          <div class="step-body">
+            <h3>Add the workflow file</h3>
+            <div class="code"><span class="file">.github/workflows/ci.yml</span><button class="copy" type="button">Copy</button><pre>name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install ruff
+      - run: ruff check api worker
+
+  smoke-test:
+    needs: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: cp .env.example .env
+      - run: docker compose up --build -d --wait
+      - run: curl --fail --retry 10 --retry-delay 3 --retry-all-errors http://localhost:8000/healthz
+      - if: failure()
+        run: docker compose logs
+      - if: always()
+        run: docker compose down -v
+
+  push-images:
+    if: github.event_name == 'push' &amp;&amp; github.ref == 'refs/heads/main'
+    needs: smoke-test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        service: [api, worker]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: ./${{ matrix.service }}
+          push: true
+          tags: |
+            ghcr.io/itay-nomis/event-album-${{ matrix.service }}:${{ github.sha }}
+            ghcr.io/itay-nomis/event-album-${{ matrix.service }}:latest</pre></div>
+            <p class="why"><code>--wait</code> makes Compose wait until every healthcheck passes. Each image is tagged with the commit SHA, so every image traces back to the exact commit that built it. Stage 4 deploys those SHA tags. Registry names must be lowercase, which is why the owner is written <code>itay-nomis</code>.</p>
+          </div>
+        </li>
+        <li data-id="s2-pr">
+          <input type="checkbox" class="chk" id="c-s2-pr" aria-label="Done: Open a pull request">
+          <div class="step-body">
+            <h3>Push the branch and open a pull request</h3>
+            <div class="code"><button class="copy" type="button">Copy</button><pre>git add .github
+git commit -m "Add CI: lint, smoke test, push images"
+git push -u origin ci-pipeline</pre></div>
+            <div class="check"><b>Check</b>The PR shows two green checks: <code>lint</code> and <code>smoke-test</code>. <code>push-images</code> is skipped because it only runs on <code>main</code>.</div>
+          </div>
+        </li>
+        <li data-id="s2-merge">
+          <input type="checkbox" class="chk" id="c-s2-merge" aria-label="Done: Merge and verify images">
+          <div class="step-body">
+            <h3>Merge the PR and check the published images</h3>
+            <p>After you merge, open your GitHub profile → <b>Packages</b>. You should see <code>event-album-api</code> and <code>event-album-worker</code>.</p>
+            <div class="code"><button class="copy" type="button">Copy</button><pre>docker pull ghcr.io/itay-nomis/event-album-api:latest</pre></div>
+            <div class="warnbox"><b>Note</b>New packages are private by default. Before a cluster can pull them, either make them public in each package's settings, or give the cluster a pull secret (Stage 4).</div>
+          </div>
+        </li>
+        <li data-id="s2-protect">
+          <input type="checkbox" class="chk" id="c-s2-protect" aria-label="Done: Protect main">
+          <div class="step-body">
+            <h3>Protect the main branch</h3>
+            <p>In the repo, go to Settings → Branches → Add rule for <code>main</code>. Require pull requests and require the <code>lint</code> and <code>smoke-test</code> checks to pass. After that, broken code can't reach <code>main</code>.</p>
+          </div>
+        </li>
+      </ol>
+    </section>
+
+    <!-- ============ STAGE 3 ============ -->
+    <section class="stage" id="s3">
+      <div class="stage-head">
+        <span class="tag">Stage 03</span>
+        <h2>Cloud infrastructure with Terraform</h2>
+        <span class="status later">Later</span>
+        <p>Replace each local container with a managed cloud service. The app code stays the same because every connection is set through environment variables. That's why the app uses S3-compatible storage.</p>
+      </div>
+      <div class="outline">
+        <h3>Steps (AWS shown as the example)</h3>
+        <ul>
+          <li><b>Set a budget alert first.</b> In AWS Billing, create a monthly budget with an email alert, for example $20.</li>
+          <li>Create a separate IAM user or SSO role for Terraform. Don't use the root account.</li>
+          <li>Keep Terraform state in an S3 bucket with state locking, not on your laptop.</li>
+          <li>Map each local service to a managed one: <code>postgres</code> → RDS, <code>redis</code> → ElastiCache, <code>storage</code> → an S3 bucket (point <code>S3_ENDPOINT</code> at real S3 and use IAM credentials).</li>
+          <li>Put everything in a VPC. The database and Redis go in private subnets with no public access.</li>
+          <li>Store secrets in AWS Secrets Manager or SSM Parameter Store, not in <code>.env</code>.</li>
+        </ul>
+        <h3>Done when</h3>
+        <ul><li><code>terraform apply</code> builds everything from nothing, and <code>terraform destroy</code> removes all of it, leaving no cost behind.</li></ul>
+      </div>
+      <ol class="steps">
+        <li data-id="s3-budget"><input type="checkbox" class="chk" id="c-s3-budget" aria-label="Done: Budget alert"><div class="step-body"><h3>Budget alert created</h3></div></li>
+        <li data-id="s3-state"><input type="checkbox" class="chk" id="c-s3-state" aria-label="Done: Remote state"><div class="step-body"><h3>Terraform state stored remotely</h3></div></li>
+        <li data-id="s3-apply"><input type="checkbox" class="chk" id="c-s3-apply" aria-label="Done: Apply and destroy"><div class="step-body"><h3>Infrastructure built with apply and removed with destroy</h3></div></li>
+      </ol>
+    </section>
+
+    <!-- ============ STAGE 4 ============ -->
+    <section class="stage" id="s4">
+      <div class="stage-head">
+        <span class="tag">Stage 04</span>
+        <h2>Kubernetes and GitOps with ArgoCD</h2>
+        <span class="status later">Later</span>
+        <p>Run the api and worker on Kubernetes. Git becomes the record of what's deployed, and ArgoCD keeps the cluster in sync with it.</p>
+      </div>
+      <div class="outline">
+        <h3>Steps</h3>
+        <ul>
+          <li>Start on a local cluster with <code>kind</code> or <code>k3d</code>. It's free, quick to create, and quick to throw away.</li>
+          <li>Write manifests, or one Helm chart, in a <code>deploy/</code> folder. You need a Deployment and Service for the api, a Deployment for the worker, an Ingress, and a Secret built from your env vars.</li>
+          <li>Give the api a <code>readinessProbe</code> and a <code>livenessProbe</code> on <code>/healthz</code>. It's the same endpoint the Dockerfile healthcheck uses.</li>
+          <li>Install ArgoCD and point an Application at <code>deploy/</code>.</li>
+          <li>Extend CI so that after it pushes images, it updates the image tag in <code>deploy/</code> to the new commit SHA. ArgoCD notices the change and deploys it.</li>
+        </ul>
+        <h3>Done when</h3>
+        <ul><li>Merging a PR changes what runs in the cluster without any <code>kubectl apply</code> by hand, and reverting the commit rolls it back.</li></ul>
+      </div>
+      <ol class="steps">
+        <li data-id="s4-local"><input type="checkbox" class="chk" id="c-s4-local" aria-label="Done: App on local cluster"><div class="step-body"><h3>App running on a local cluster</h3></div></li>
+        <li data-id="s4-argo"><input type="checkbox" class="chk" id="c-s4-argo" aria-label="Done: ArgoCD syncing"><div class="step-body"><h3>ArgoCD keeping the cluster in sync with <code>deploy/</code></h3></div></li>
+        <li data-id="s4-loop"><input type="checkbox" class="chk" id="c-s4-loop" aria-label="Done: Merge deploys"><div class="step-body"><h3>A merged PR deploys automatically</h3></div></li>
+      </ol>
+    </section>
+
+    <!-- ============ STAGE 5 ============ -->
+    <section class="stage" id="s5">
+      <div class="stage-head">
+        <span class="tag">Stage 05</span>
+        <h2>Scale for a 300-guest wedding</h2>
+        <span class="status later">Later</span>
+        <p>Add workers when the <code>jobs</code> queue grows, then load-test the system to prove it holds up.</p>
+      </div>
+      <div class="outline">
+        <h3>Steps</h3>
+        <ul>
+          <li>Install KEDA and create a <code>ScaledObject</code> with a Redis list trigger on <code>jobs</code>. For example: 1 worker per 20 queued jobs, between 1 and 10 workers.</li>
+          <li>Write a k6 script that uploads photos the way guests would: 300 guests sending bursts of photos during the first dance.</li>
+          <li>While the test runs, watch the queue length, the worker count and the upload latency.</li>
+        </ul>
+        <h3>Done when</h3>
+        <ul><li>The queue spikes, the worker count rises, the queue drains, and the workers scale back down, all without manual steps.</li></ul>
+      </div>
+      <ol class="steps">
+        <li data-id="s5-keda"><input type="checkbox" class="chk" id="c-s5-keda" aria-label="Done: KEDA"><div class="step-body"><h3>Workers scale with queue length</h3></div></li>
+        <li data-id="s5-k6"><input type="checkbox" class="chk" id="c-s5-k6" aria-label="Done: Load test"><div class="step-body"><h3>300-guest load test passed</h3></div></li>
+      </ol>
+    </section>
+
+    <!-- ============ STAGE 6 ============ -->
+    <section class="stage" id="s6">
+      <div class="stage-head">
+        <span class="tag">Stage 06</span>
+        <h2>Observability</h2>
+        <span class="status later">Later</span>
+        <p>Find out something is wrong before the bride does.</p>
+      </div>
+      <div class="outline">
+        <h3>Steps</h3>
+        <ul>
+          <li>Install <code>kube-prometheus-stack</code>, which includes Prometheus, Grafana and Alertmanager.</li>
+          <li>Add a <code>/metrics</code> endpoint to the api (for example with <code>prometheus-fastapi-instrumentator</code>). Have the worker report how long each job takes and how many jobs fail.</li>
+          <li>Build one Grafana dashboard showing uploads per minute, queue length, processing time, and 5xx error rate.</li>
+          <li>Set up alerts for a queue longer than 100 for 5 minutes, an api error rate above 2%, and worker restarts.</li>
+        </ul>
+      </div>
+      <ol class="steps">
+        <li data-id="s6-metrics"><input type="checkbox" class="chk" id="c-s6-metrics" aria-label="Done: Metrics"><div class="step-body"><h3>api and worker report metrics</h3></div></li>
+        <li data-id="s6-dash"><input type="checkbox" class="chk" id="c-s6-dash" aria-label="Done: Dashboard"><div class="step-body"><h3>Grafana dashboard built</h3></div></li>
+        <li data-id="s6-alerts"><input type="checkbox" class="chk" id="c-s6-alerts" aria-label="Done: Alerts"><div class="step-body"><h3>Alert triggered once on purpose and seen</h3></div></li>
+      </ol>
+    </section>
+
+    <!-- ============ TROUBLESHOOTING ============ -->
+    <section class="stage" id="trouble">
+      <div class="stage-head">
+        <span class="tag">Reference</span>
+        <h2>Troubleshooting</h2>
+      </div>
+      <div class="tablewrap">
+        <table class="trouble">
+          <thead><tr><th>What you see</th><th>Fix</th></tr></thead>
+          <tbody>
+            <tr><td>failed to connect to the docker API … dockerDesktopLinuxEngine</td><td>Docker Desktop isn't running. Start it and wait for <i>Engine running</i>.</td></tr>
+            <tr><td>Bind for 0.0.0.0:8000 failed: port is already allocated</td><td>Another program is using port 8000. Find it with <code>netstat -ano | findstr :8000</code>, or change the mapping to <code>"8080:8000"</code>.</td></tr>
+            <tr><td>api keeps restarting</td><td>Run <code>docker compose logs api</code>. The usual cause is a missing variable in <code>.env</code>, which shows up as <code>KeyError: 'DATABASE_URL'</code>.</td></tr>
+            <tr><td>password authentication failed for user "album"</td><td>You changed the password after the database volume was created. Either change it back, or run <code>docker compose down -v</code> to start fresh. This deletes all data.</td></tr>
+            <tr><td>Photo uploads, but never appears on the venue screen</td><td>Check whether the worker is running (<code>docker compose ps</code>), whether the queue is growing (<code>redis-cli llen jobs</code>), and read <code>docker compose logs worker</code>.</td></tr>
+            <tr><td>Phone can't open the QR link</td><td>Create the event while browsing at your PC's LAN IP, not at localhost. Then allow port 8000 through Windows Firewall on private networks.</td></tr>
+            <tr><td>Code changes don't show up</td><td>The code is copied into the image at build time. Rebuild with <code>docker compose up --build -d</code>.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+(function () {
+  var KEY = "event-album-runbook:v1";
+  var state = {};
+  try { state = JSON.parse(localStorage.getItem(KEY) || "{}") || {}; } catch (e) { state = {}; }
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} }
+
+  var items = Array.prototype.slice.call(document.querySelectorAll("li[data-id]"));
+  function refresh() {
+    var total = 0, done = 0;
+    document.querySelectorAll("section.stage[id^='s']").forEach(function (sec) {
+      var lis = sec.querySelectorAll("li[data-id]");
+      var d = 0;
+      lis.forEach(function (li) { if (state[li.dataset.id]) d++; });
+      total += lis.length; done += d;
+      var c = document.querySelector('.count[data-for="' + sec.id + '"]');
+      if (c) {
+        c.textContent = d + "/" + lis.length;
+        c.parentElement.classList.toggle("complete", lis.length > 0 && d === lis.length);
+      }
+    });
+    document.getElementById("overall-text").textContent = done + " of " + total + " steps done";
+    document.getElementById("overall-bar").style.width = (total ? (done / total * 100) : 0) + "%";
+  }
+  items.forEach(function (li) {
+    var box = li.querySelector(".chk");
+    box.checked = !!state[li.dataset.id];
+    li.classList.toggle("checked", box.checked);
+    box.addEventListener("change", function () {
+      state[li.dataset.id] = box.checked;
+      if (!box.checked) delete state[li.dataset.id];
+      li.classList.toggle("checked", box.checked);
+      save(); refresh();
+    });
+  });
+  var resetBtn = document.getElementById("reset");
+  var armed = false;
+  resetBtn.addEventListener("click", function () {
+    if (!armed) { armed = true; resetBtn.textContent = "Click again to clear"; setTimeout(function () { armed = false; resetBtn.textContent = "Clear my progress"; }, 3000); return; }
+    state = {}; save();
+    items.forEach(function (li) { li.querySelector(".chk").checked = false; li.classList.remove("checked"); });
+    armed = false; resetBtn.textContent = "Progress cleared"; refresh();
+  });
+
+  document.querySelectorAll(".code").forEach(function (block) {
+    var btn = block.querySelector(".copy");
+    var pre = block.querySelector("pre");
+    if (!btn || !pre) return;
+    btn.addEventListener("click", function () {
+      var text = pre.innerText;
+      function ok() { btn.textContent = "Copied"; setTimeout(function () { btn.textContent = "Copy"; }, 1500); }
+      function fallback() {
+        var r = document.createRange(); r.selectNodeContents(pre);
+        var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
+        btn.textContent = "Press Ctrl+C";
+      }
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(ok, fallback);
+        else fallback();
+      } catch (e) { fallback(); }
+    });
+  });
+  refresh();
+})();
+</script>
