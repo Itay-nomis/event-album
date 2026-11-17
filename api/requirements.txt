@@ -6,7 +6,7 @@ redis==5.2.1
 # boto3 is kept below 1.36: newer versions send extra checksum headers by default,
 # which some S3-compatible stores reject. Bump deliberately and test against SeaweedFS.
 boto3==1.35.90
-qrcode==8.0
+qrcode==8.2
 prometheus-client==0.26.0
 azure-storage-blob==12.31.1
 azure-identity==1.27.0
