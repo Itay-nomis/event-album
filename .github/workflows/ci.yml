@@ -123,10 +123,21 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: main
+          fetch-depth: 0 # history, for the "newer commit?" check below
           persist-credentials: true # the push below uses the job's GITHUB_TOKEN
+      - name: Skip if main already has newer code
+        id: newer
+        # Pipelines can finish out of order. If someone pushed again after this commit, that
+        # newer pipeline deploys - don't roll the overlay back to this older image.
+        run: |
+          newer="$(git log --format=%s "${GITHUB_SHA}..HEAD" | grep -vc '\[skip ci\]' || true)"
+          echo "Newer non-bot commits on main: ${newer}"
+          echo "skip=$([ "${newer}" -gt 0 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
       - name: Install kustomize
+        if: steps.newer.outputs.skip != 'true'
         run: scripts/ci/install-k8s-tools.sh "$KUSTOMIZE_VERSION" "$KUBECONFORM_VERSION"
       - name: Point the local overlay at the new images
+        if: steps.newer.outputs.skip != 'true'
         working-directory: k8s/overlays/local
         run: |
           owner="${GITHUB_REPOSITORY_OWNER,,}"
@@ -135,6 +146,7 @@ jobs:
             "event-album-worker=ghcr.io/${owner}/event-album-worker:${GITHUB_SHA}"
           git diff
       - name: Commit and push ([skip ci] = don't start another pipeline)
+        if: steps.newer.outputs.skip != 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
