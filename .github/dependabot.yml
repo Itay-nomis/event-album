@@ -1,0 +1,15 @@
+# Monthly PRs that bump pinned versions (actions, Python packages, base images).
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+  - package-ecosystem: pip
+    directories: [/api, /worker, /]
+    schedule:
+      interval: monthly
+  - package-ecosystem: docker
+    directories: [/api, /worker]
+    schedule:
+      interval: monthly
