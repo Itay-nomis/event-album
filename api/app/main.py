@@ -226,7 +226,10 @@ def event_qr(code: str, request: Request):
 # ---------- photos ----------
 @app.post("/api/events/{code}/photos")
 async def upload_photo(code: str, file: UploadFile = File(...)):
-    event = _get_event(code)
+    # This handler is async (for `await file.read()`), so every blocking call - Postgres,
+    # S3, Redis - goes through asyncio.to_thread. A blocking call here would freeze the whole
+    # event loop: every other upload and every open slideshow stream on this pod.
+    event = await asyncio.to_thread(_get_event, code)
     if not (file.content_type or "").startswith("image/"):
         raise HTTPException(400, "only images are allowed")
     data = await file.read()
@@ -235,10 +238,11 @@ async def upload_photo(code: str, file: UploadFile = File(...)):
 
     photo_id = uuid.uuid4()
     key = f"originals/{event['code']}/{photo_id}"
+    job = json.dumps({"photo_id": str(photo_id), "event_code": event["code"]})
     await asyncio.to_thread(get_storage().put, key, data, file.content_type)
-    db.add_photo(photo_id, event["code"], key)
+    await asyncio.to_thread(db.add_photo, photo_id, event["code"], key)
     # Hand the heavy work to the worker through a Redis queue
-    get_redis().rpush(JOB_QUEUE, json.dumps({"photo_id": str(photo_id), "event_code": event["code"]}))
+    await asyncio.to_thread(get_redis().rpush, JOB_QUEUE, job)
     UPLOADS.inc()
     return {"id": str(photo_id), "status": "pending"}
 
@@ -263,7 +267,7 @@ def media(key: str):
 @app.get("/api/events/{code}/stream")
 async def stream(code: str, request: Request):
     """Server-Sent Events: pushes every newly processed photo to the slideshow."""
-    event = _get_event(code)
+    event = await asyncio.to_thread(_get_event, code)
 
     async def gen():
         r = aioredis.from_url(REDIS_URL)

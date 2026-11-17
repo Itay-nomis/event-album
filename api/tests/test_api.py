@@ -177,3 +177,39 @@ def test_metrics_endpoint(client):
     assert 'album_http_requests_total{method="GET",route="/healthz",status="200"}' in body
     assert "album_http_request_duration_seconds_bucket" in body
     assert "album_uploads_total" in body
+
+
+def test_upload_does_not_block_the_event_loop(client, fake_db, fake_redis, monkeypatch):
+    """Postgres/Redis calls in the async upload handler must run in a worker thread, not on
+    the event loop (a blocking call there stalls every other request and SSE stream)."""
+    import asyncio
+
+    def on_event_loop() -> bool:
+        try:
+            asyncio.get_running_loop()
+            return True
+        except RuntimeError:
+            return False
+
+    calls = []
+    real_get_event, real_add_photo, real_rpush = fake_db.get_event, fake_db.add_photo, fake_redis.rpush
+
+    def get_event(code):
+        calls.append(("get_event", on_event_loop()))
+        return real_get_event(code)
+
+    def add_photo(*args):
+        calls.append(("add_photo", on_event_loop()))
+        return real_add_photo(*args)
+
+    def rpush(*args):
+        calls.append(("rpush", on_event_loop()))
+        return real_rpush(*args)
+
+    code = _make_event(client)
+    monkeypatch.setattr(main.db, "get_event", get_event)
+    monkeypatch.setattr(main.db, "add_photo", add_photo)
+    monkeypatch.setattr(fake_redis, "rpush", rpush)
+    res = client.post(f"/api/events/{code}/photos", files={"file": ("a.png", _png_bytes(), "image/png")})
+    assert res.status_code == 200
+    assert calls == [("get_event", False), ("add_photo", False), ("rpush", False)]
