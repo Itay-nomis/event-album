@@ -1,0 +1,88 @@
+# Worker: pulls jobs from the Redis list "jobs". KEDA scales it from 0 to 10 on queue length.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker
+  labels:
+    app: event-album-worker
+spec:
+  # No `replicas:` - KEDA (through the HPA it creates) owns the replica count.
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: event-album-worker
+  template:
+    metadata:
+      labels:
+        app: event-album-worker
+    spec:
+      # On scale-down the worker gets SIGTERM, finishes its current photo and exits.
+      # This is the upper bound Kubernetes waits before it kills the pod.
+      terminationGracePeriodSeconds: 60
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: worker
+          image: event-album-worker
+          ports:
+            - name: metrics
+              containerPort: 9100
+          envFrom:
+            - configMapRef:
+                name: event-album-config
+            - secretRef:
+                name: event-album-secrets
+          livenessProbe:
+            httpGet:
+              path: /metrics
+              port: metrics
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 768Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 256Mi
+---
+# KEDA reads the length of the Redis list and drives an HPA for the worker Deployment.
+#   0 jobs  -> 0 workers (nothing running between events)
+#   N jobs  -> about N / listLength workers, up to maxReplicaCount
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: worker
+spec:
+  scaleTargetRef:
+    name: worker
+  minReplicaCount: 0
+  maxReplicaCount: 10
+  pollingInterval: 5 # seconds between queue checks
+  cooldownPeriod: 120 # seconds of empty queue before scaling to zero
+  triggers:
+    - type: redis
+      metadata:
+        # Full DNS name: the KEDA operator runs in another namespace
+        address: redis.event-album.svc.cluster.local:6379
+        listName: jobs
+        listLength: "5" # target jobs waiting per worker
+        activationListLength: "0" # wake up from zero as soon as 1 job is waiting
+        databaseIndex: "0"

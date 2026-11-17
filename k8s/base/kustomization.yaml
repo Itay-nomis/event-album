@@ -1,0 +1,31 @@
+# Base: the Event Album app itself, the same in every environment.
+# Overlays (../overlays/*) add the backing services and environment-specific settings.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: event-album
+
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: event-album
+    includeSelectors: false
+
+resources:
+  - namespace.yaml
+  - api.yaml
+  - worker.yaml
+  - ingress.yaml
+
+# Non-secret settings. A content hash is appended to the ConfigMap name, so changing a
+# value here gives the pods a new ConfigMap name -> Kubernetes rolls them automatically.
+configMapGenerator:
+  - name: event-album-config
+    literals:
+      - REDIS_URL=redis://redis:6379/0
+      - STORAGE_BACKEND=s3
+      - BLUR_THRESHOLD=60
+      # Empty = detect the public URL from the request (works with the Cloudflare tunnel)
+      - PUBLIC_BASE_URL=
+
+# Container images are named "event-album-api" / "event-album-worker" here as placeholders;
+# every overlay maps them to a real registry + tag with an `images:` block.

@@ -1,0 +1,5 @@
+# In-cluster Redis: job queue + pub/sub. Used by both overlays.
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+resources:
+  - redis.yaml

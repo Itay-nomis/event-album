@@ -1,0 +1,8 @@
+# copy terraform.tfvars.example terraform.tfvars   (terraform.tfvars is gitignored)
+budget_email = "you@example.com"
+
+# Optional overrides
+# subscription_id = "00000000-0000-0000-0000-000000000000"
+# location        = "westeurope"
+# prefix          = "evalbum"
+# budget_amount   = 20

@@ -1,0 +1,18 @@
+# Routes all HTTP traffic to the API. No host rule, so it answers for any hostname:
+# localhost:8080, your LAN IP, or the random *.trycloudflare.com name of the tunnel.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: event-album
+spec:
+  ingressClassName: traefik # k3s ships Traefik as its ingress controller
+  rules:
+    - http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: api
+                port:
+                  name: http

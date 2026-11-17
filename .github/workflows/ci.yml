@@ -1,0 +1,161 @@
+# CI/CD for Event Album - everything here runs on free GitHub-hosted runners.
+#
+#   PR or push      -> lint + tests, build both images, validate Terraform and Kubernetes YAML
+#   push to main    -> also push images to GHCR (tag = git SHA), then commit that tag into
+#                      k8s/overlays/local. ArgoCD sees the commit and deploys it (GitOps).
+#
+# Actions are pinned to full commit SHAs (a tag can be moved; a SHA cannot). The comment
+# after each SHA is the human-readable version.
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: ["**"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  PYTHON_VERSION: "3.12"
+  KUSTOMIZE_VERSION: "5.8.3"
+  KUBECONFORM_VERSION: "0.8.0"
+  TERRAFORM_VERSION: "1.17.2"
+
+jobs:
+  lint-test:
+    name: Lint + unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: |
+            api/requirements.txt
+            worker/requirements.txt
+            requirements-dev.txt
+      - name: Install dependencies
+        run: pip install -r api/requirements.txt -r worker/requirements.txt -r requirements-dev.txt
+      - name: Ruff lint
+        run: ruff check .
+      - name: Ruff format check
+        run: ruff format --check .
+      - name: Pytest
+        run: pytest
+
+  images:
+    name: Docker image (${{ matrix.service }})
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write # only used on main, to push to ghcr.io
+    strategy:
+      matrix:
+        service: [api, worker]
+    env:
+      PUSH: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Image name (GHCR names must be lowercase)
+        run: echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/event-album-${{ matrix.service }}" >> "$GITHUB_ENV"
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Log in to GHCR
+        if: env.PUSH == 'true'
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build${{ env.PUSH == 'true' && ' and push' || '' }}
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: ${{ matrix.service }}
+          push: ${{ env.PUSH == 'true' }}
+          tags: |
+            ${{ env.IMAGE }}:${{ github.sha }}
+            ${{ env.IMAGE }}:main
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          cache-from: type=gha,scope=${{ matrix.service }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service }}
+
+  terraform:
+    name: Terraform validate (infra/azure, never applied)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: infra/azure
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+      - run: terraform fmt -check -recursive -diff
+      # -backend=false: no state, no Azure login, nothing is created
+      - run: terraform init -backend=false -input=false
+      - run: terraform validate
+
+  k8s:
+    name: Kustomize build + kubeconform
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install kustomize + kubeconform
+        run: scripts/ci/install-k8s-tools.sh "$KUSTOMIZE_VERSION" "$KUBECONFORM_VERSION"
+      - run: scripts/validate-k8s.sh
+
+  # ---- CD: only after everything above passed on main ----
+  deploy-local-overlay:
+    name: Bump image tag for ArgoCD (GitOps)
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [lint-test, images, terraform, k8s]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # commit the new tag back to main
+    concurrency:
+      group: deploy-main
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 0 # history, for the "newer commit?" check below
+          persist-credentials: true # the push below uses the job's GITHUB_TOKEN
+      - name: Skip if main already has newer code
+        id: newer
+        # Pipelines can finish out of order. If someone pushed again after this commit, that
+        # newer pipeline deploys - don't roll the overlay back to this older image.
+        run: |
+          newer="$(git log --format=%s "${GITHUB_SHA}..HEAD" | grep -vc '\[skip ci\]' || true)"
+          echo "Newer non-bot commits on main: ${newer}"
+          echo "skip=$([ "${newer}" -gt 0 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+      - name: Install kustomize
+        if: steps.newer.outputs.skip != 'true'
+        run: scripts/ci/install-k8s-tools.sh "$KUSTOMIZE_VERSION" "$KUBECONFORM_VERSION"
+      - name: Point the local overlay at the new images
+        if: steps.newer.outputs.skip != 'true'
+        working-directory: k8s/overlays/local
+        run: |
+          owner="${GITHUB_REPOSITORY_OWNER,,}"
+          kustomize edit set image \
+            "event-album-api=ghcr.io/${owner}/event-album-api:${GITHUB_SHA}" \
+            "event-album-worker=ghcr.io/${owner}/event-album-worker:${GITHUB_SHA}"
+          git diff
+      - name: Commit and push ([skip ci] = don't start another pipeline)
+        if: steps.newer.outputs.skip != 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add k8s/overlays/local/kustomization.yaml
+          if git diff --cached --quiet; then echo "No change"; exit 0; fi
+          git commit -m "deploy: event-album ${GITHUB_SHA::7} to local overlay [skip ci]"
+          # Someone may have pushed meanwhile: replay our one-line change on top
+          for i in 1 2 3; do
+            git pull --rebase origin main && git push origin HEAD:main && exit 0
+            sleep 5
+          done
+          exit 1

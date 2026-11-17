@@ -1,7 +1,12 @@
-fastapi==0.115.6
-uvicorn[standard]==0.34.0
-python-multipart==0.0.20
+fastapi==0.163.1
+uvicorn[standard]==0.54.0
+python-multipart==0.0.34
 psycopg[binary]==3.2.3
 redis==5.2.1
+# boto3 is kept below 1.36: newer versions send extra checksum headers by default,
+# which some S3-compatible stores reject. Bump deliberately and test against SeaweedFS.
 boto3==1.35.90
 qrcode==8.0
+prometheus-client==0.26.0
+azure-storage-blob==12.31.1
+azure-identity==1.27.0

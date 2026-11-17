@@ -4,3 +4,22 @@ __pycache__/
 .venv/
 .vscode/
 .idea/
+
+# Secrets / local config (never commit)
+*.secret.env
+k8s/overlays/*/secrets.env
+.pytest_cache/
+.ruff_cache/
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+crash.log
+tfplan
+
+# Load test artifacts
+loadtest/images/
+loadtest/results/

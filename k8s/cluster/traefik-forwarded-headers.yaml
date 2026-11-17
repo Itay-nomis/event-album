@@ -1,0 +1,18 @@
+# Cluster-level tweak for the bundled k3s Traefik (applied by scripts/local-up.ps1, not ArgoCD).
+#
+# The Cloudflare tunnel delivers requests to Traefik over plain http with
+# X-Forwarded-Proto: https. By default Traefik only trusts X-Forwarded-* headers from
+# known proxies and would overwrite it with "http". Trusting them on the "web" entrypoint
+# keeps the original https scheme for the app (QR code links).
+# Fine for a laptop cluster; on a public cluster use forwardedHeaders.trustedIPs instead.
+apiVersion: helm.cattle.io/v1
+kind: HelmChartConfig
+metadata:
+  name: traefik
+  namespace: kube-system
+spec:
+  valuesContent: |-
+    ports:
+      web:
+        forwardedHeaders:
+          insecure: true

@@ -16,6 +16,8 @@ services:
   worker:
     build: ./worker
     env_file: .env
+    ports:
+      - "9100:9100"   # Prometheus metrics: http://localhost:9100/metrics
     depends_on:
       postgres:
         condition: service_healthy
@@ -26,7 +28,7 @@ services:
     restart: unless-stopped
 
   postgres:
-    image: postgres:16-alpine
+    image: postgres:16.16-alpine
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -39,16 +41,17 @@ services:
       retries: 10
 
   redis:
-    image: redis:7-alpine
+    image: redis:7.4.12-alpine
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       retries: 10
 
   storage:
-    # SeaweedFS: S3-compatible object storage (MinIO's community image was discontinued)
-    image: chrislusf/seaweedfs:latest
-    command: server -dir=/data -s3
+    # SeaweedFS: S3-compatible object storage (MinIO's community image was discontinued).
+    # Pinned to a release tag: https://github.com/seaweedfs/seaweedfs/releases
+    image: chrislusf/seaweedfs:4.52
+    command: server -dir=/data -s3 -master.volumeSizeLimitMB=1024
     volumes:
       - storagedata:/data
 

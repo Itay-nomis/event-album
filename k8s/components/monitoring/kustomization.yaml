@@ -1,0 +1,17 @@
+# Prometheus Operator objects (CRDs come from kube-prometheus-stack) + a Grafana dashboard.
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+resources:
+  - monitors.yaml
+  - alerts.yaml
+
+# Grafana's dashboard sidecar loads every ConfigMap labelled grafana_dashboard=1 (any namespace)
+configMapGenerator:
+  - name: event-album-dashboard
+    files:
+      - dashboards/event-album.json
+    options:
+      disableNameSuffixHash: true
+      labels:
+        grafana_dashboard: "1"
