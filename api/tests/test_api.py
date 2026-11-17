@@ -149,19 +149,24 @@ def test_sse_headers_disable_buffering(client, monkeypatch):
 
     monkeypatch.setattr(Request, "is_disconnected", fake_disconnected)
 
+    closed = []
+
     class FakePubSub:
         async def subscribe(self, *_):
             pass
 
         async def unsubscribe(self, *_):
-            pass
+            raise ConnectionError("connection already gone")  # client hung up mid-read
+
+        async def aclose(self):
+            closed.append("pubsub")
 
     class FakeAsyncRedis:
         def pubsub(self):
             return FakePubSub()
 
         async def aclose(self):
-            pass
+            closed.append("redis")
 
     monkeypatch.setattr(main.aioredis, "from_url", lambda *_a, **_k: FakeAsyncRedis())
     res = client.get(f"/api/events/{code}/stream")
@@ -169,6 +174,7 @@ def test_sse_headers_disable_buffering(client, monkeypatch):
     assert res.headers["content-type"].startswith("text/event-stream")
     assert res.headers["cache-control"] == "no-cache"
     assert res.headers["x-accel-buffering"] == "no"
+    assert closed == ["pubsub", "redis"]  # Redis connections released even if unsubscribe fails
 
 
 def test_metrics_endpoint(client):

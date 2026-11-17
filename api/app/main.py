@@ -283,7 +283,13 @@ async def stream(code: str, request: Request):
                     yield ": keepalive\n\n"
                 await asyncio.sleep(0)
         finally:
-            await pubsub.unsubscribe()
+            # The browser closing the slideshow cancels this generator mid-read, so the
+            # pub/sub connection may already be broken: always close it, never leak it.
+            try:
+                await pubsub.unsubscribe()
+            except Exception:
+                pass
+            await pubsub.aclose()
             await r.aclose()
 
     return StreamingResponse(
