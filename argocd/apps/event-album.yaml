@@ -18,10 +18,16 @@ spec:
   destination:
     server: https://kubernetes.default.svc
     namespace: event-album
-  # KEDA/HPA change replicas at runtime; never treat that as drift
+  # KEDA/HPA change these replica counts at runtime; never treat that as drift
   ignoreDifferences:
     - group: apps
       kind: Deployment
+      name: api
+      jsonPointers:
+        - /spec/replicas
+    - group: apps
+      kind: Deployment
+      name: worker
       jsonPointers:
         - /spec/replicas
   syncPolicy:
