@@ -1,5 +1,5 @@
 psycopg[binary]==3.2.3
-redis==5.2.1
+redis==8.1.0
 # See api/requirements.txt for why boto3 stays below 1.36
 boto3==1.35.90
 pillow==11.1.0
