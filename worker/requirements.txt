@@ -3,7 +3,7 @@ redis==5.2.1
 # See api/requirements.txt for why boto3 stays below 1.36
 boto3==1.35.90
 pillow==11.1.0
-pillow-heif==0.21.0
+pillow-heif==1.8.1
 prometheus-client==0.26.0
 azure-storage-blob==12.31.1
 azure-identity==1.27.0
