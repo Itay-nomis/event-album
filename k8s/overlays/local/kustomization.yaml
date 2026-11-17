@@ -3,6 +3,10 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
+# Also applies to the resources added here and by the components (Postgres, SeaweedFS,
+# Redis, monitors); the base's own `namespace:` only covers the base.
+namespace: event-album
+
 resources:
 - ../../base
 - postgres.yaml
