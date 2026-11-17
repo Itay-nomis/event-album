@@ -1,0 +1,20 @@
+# Tool configuration only (the services are not installable packages).
+
+[tool.ruff]
+line-length = 110
+target-version = "py312"
+
+[tool.ruff.lint]
+# E/W = pycodestyle, F = pyflakes, I = import sorting, B = bugbear, UP = pyupgrade
+select = ["E", "W", "F", "I", "B", "UP"]
+ignore = ["B008"]  # FastAPI's `File(...)` default arguments are the intended pattern
+
+[tool.ruff.lint.isort]
+known-first-party = ["app", "storage", "worker"]
+
+[tool.pytest.ini_options]
+# api/ holds the `app` package, worker/ holds `worker.py` + `storage.py`
+pythonpath = ["api", "worker"]
+testpaths = ["api/tests", "worker/tests"]
+addopts = "-q"
+filterwarnings = ["ignore::DeprecationWarning:botocore.*"]
