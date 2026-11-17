@@ -117,8 +117,19 @@ if ($clusterExists) {
 }
 Invoke-Native "kubectl context" { kubectl config use-context "k3d-$ClusterName" }
 
-# Trust X-Forwarded-* in Traefik so the tunnel's https scheme reaches the app (QR links)
-Invoke-Native "Traefik config" { kubectl apply -f "$RepoRoot\k8s\cluster\traefik-forwarded-headers.yaml" }
+# Trust X-Forwarded-* in Traefik so the tunnel's https scheme reaches the app (QR links).
+# On a brand-new cluster k3s may need a few more seconds to register the HelmChartConfig
+# type, so retry for up to a minute before giving up (the last try shows the real error).
+$traefikYaml = "$RepoRoot\k8s\cluster\traefik-forwarded-headers.yaml"
+$traefikOk = $false
+for ($i = 1; ($i -le 12) -and (-not $traefikOk); $i++) {
+    $traefikOk = Test-Native { kubectl apply -f $traefikYaml }
+    if (-not $traefikOk) { Start-Sleep -Seconds 5 }
+}
+if (-not $traefikOk) {
+    Invoke-Native "Traefik config" { kubectl apply -f $traefikYaml }
+}
+Write-Ok "Traefik trusts X-Forwarded-* headers"
 
 # ---------------------------------------------------------------------------
 if ($LocalImages) {
