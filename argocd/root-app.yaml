@@ -1,0 +1,23 @@
+# App of apps: the only thing applied by hand (scripts/local-up.ps1 does it).
+# ArgoCD then reads argocd/apps/ from git and creates every child Application found there.
+# From that point on, git is the source of truth: change a file, push, ArgoCD syncs it.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: root
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Itay-nomis/event-album
+    targetRevision: main
+    path: argocd/apps
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

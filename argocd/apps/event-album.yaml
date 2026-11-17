@@ -1,0 +1,40 @@
+# The app itself: renders k8s/overlays/local with Kustomize.
+# CI commits a new image tag into that overlay on every push to main -> ArgoCD rolls it out.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: event-album
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Itay-nomis/event-album
+    targetRevision: main
+    path: k8s/overlays/local
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: event-album
+  # KEDA/HPA change replicas at runtime; never treat that as drift
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      # ScaledObject / ServiceMonitor CRDs arrive with the KEDA and Prometheus apps
+      - SkipDryRunOnMissingResource=true
+      - RespectIgnoreDifferences=true
+    retry:
+      limit: 10
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 3m

@@ -1,0 +1,48 @@
+# Azure overlay (for later - see infra/azure/README.md; costs money):
+#   * Postgres  -> Azure Database for PostgreSQL Flexible Server (DATABASE_URL in the Secret)
+#   * Storage   -> Azure Blob, authenticated with AKS workload identity (no keys anywhere)
+#   * Redis     -> still in-cluster
+#   * Ingress   -> Traefik, installed with Helm (AKS has no Traefik by default)
+# Replace the REPLACE_ME values with `terraform output` values before deploying.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base
+  - serviceaccount.yaml
+
+components:
+  - ../../components/redis
+  # Uncomment if you install kube-prometheus-stack on AKS too:
+  # - ../../components/monitoring
+
+configMapGenerator:
+  - name: event-album-config
+    behavior: merge
+    literals:
+      - STORAGE_BACKEND=azure
+      - AZURE_STORAGE_ACCOUNT_URL=https://REPLACE_ME.blob.core.windows.net # terraform output storage_account_url
+      - AZURE_STORAGE_CONTAINER=photos
+
+patches:
+  # Run api + worker as the workload-identity ServiceAccount. The pod label tells the AKS
+  # webhook to inject the federated token that DefaultAzureCredential exchanges for an
+  # Azure AD token (role: Storage Blob Data Contributor on the storage account).
+  - target:
+      kind: Deployment
+      name: "(api|worker)"
+    patch: |-
+      - op: add
+        path: /spec/template/spec/serviceAccountName
+        value: event-album
+      - op: add
+        path: /spec/template/metadata/labels/azure.workload.identity~1use
+        value: "true"
+
+images:
+  - name: event-album-api
+    newName: ghcr.io/itay-nomis/event-album-api
+    newTag: bootstrap # set to a git SHA that CI pushed
+  - name: event-album-worker
+    newName: ghcr.io/itay-nomis/event-album-worker
+    newTag: bootstrap

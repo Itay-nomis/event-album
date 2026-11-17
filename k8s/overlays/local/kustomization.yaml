@@ -1,0 +1,31 @@
+# Local overlay: everything runs inside the k3d cluster on your PC. Deployed by ArgoCD
+# (argocd/apps/event-album.yaml). CI updates the image tags below on every push to main.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base
+  - postgres.yaml
+  - seaweedfs.yaml
+
+components:
+  - ../../components/redis
+  - ../../components/monitoring
+
+configMapGenerator:
+  - name: event-album-config
+    behavior: merge
+    literals:
+      - S3_ENDPOINT=http://seaweedfs:8333
+      - S3_BUCKET=photos
+
+# The Secret "event-album-secrets" is NOT in git. scripts/local-up.ps1 creates it
+# (see secrets.env.example for the keys).
+
+images:
+  - name: event-album-api
+    newName: ghcr.io/itay-nomis/event-album-api
+    newTag: bootstrap
+  - name: event-album-worker
+    newName: ghcr.io/itay-nomis/event-album-worker
+    newTag: bootstrap

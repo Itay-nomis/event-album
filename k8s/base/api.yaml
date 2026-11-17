@@ -1,0 +1,111 @@
+# API: web pages, uploads, live stream. Stateless, so it scales horizontally (HPA below).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+  labels:
+    app: event-album-api
+spec:
+  # No `replicas:` on purpose - the HorizontalPodAutoscaler owns that number.
+  # (If it were set here, every ArgoCD sync would reset it.)
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: event-album-api
+  template:
+    metadata:
+      labels:
+        app: event-album-api
+    spec:
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: api
+          image: event-album-api
+          ports:
+            - name: http
+              containerPort: 8000
+          envFrom:
+            - configMapRef:
+                name: event-album-config
+            # Created outside git (see scripts/local-up.ps1 / docs). Never commit secrets.
+            - secretRef:
+                name: event-album-secrets
+          # startupProbe gives the app time to wait for Postgres on a cold cluster start
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 3
+            failureThreshold: 60
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 3
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 3
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 384Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp # uploads bigger than 1MB are spooled to /tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api
+  labels:
+    app: event-album-api
+spec:
+  selector:
+    app: event-album-api
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+# Scale the API on CPU. k3s ships metrics-server, which the HPA needs for CPU numbers.
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: api
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: api
+  minReplicas: 1
+  maxReplicas: 4
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70

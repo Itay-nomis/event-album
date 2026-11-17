@@ -1,0 +1,51 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: event-album
+  labels:
+    release: kube-prometheus-stack
+spec:
+  groups:
+    - name: event-album
+      rules:
+        - alert: EventAlbumApiDown
+          # No api target reported up=1 for 2 minutes
+          expr: absent(up{namespace="event-album", job="api"} == 1)
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: Event Album API is down
+            description: No API pod has answered a Prometheus scrape for 2 minutes. Guests cannot upload.
+
+        - alert: EventAlbumHigh5xxRate
+          expr: |
+            sum(rate(album_http_requests_total{status=~"5.."}[5m]))
+              / clamp_min(sum(rate(album_http_requests_total[5m])), 1e-9) > 0.05
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: More than 5% of API requests fail
+            description: '{{ $value | humanizePercentage }} of API requests returned 5xx over the last 5 minutes.'
+
+        - alert: EventAlbumQueueBacklog
+          # Worker gauge when workers run; KEDA's own reading covers the "no workers at all" case
+          expr: |
+            max(album_worker_queue_length) > 50
+              or max(keda_scaler_metrics_value{metric=~".*jobs.*"}) > 50
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: Photo queue is backing up
+            description: More than 50 photos have been waiting for 5 minutes. Check worker pods and KEDA.
+
+        - alert: EventAlbumWorkerFailures
+          expr: sum(increase(album_worker_jobs_failed_total[10m])) > 5
+          for: 1m
+          labels:
+            severity: warning
+          annotations:
+            summary: Worker is failing to process photos
+            description: '{{ $value | humanize }} photos failed processing in the last 10 minutes. See `kubectl logs -n event-album deploy/worker`.'

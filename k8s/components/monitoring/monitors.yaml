@@ -1,0 +1,32 @@
+# Tell Prometheus what to scrape.
+# API: through its Service (port "http", path /metrics), every replica.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: api
+  labels:
+    release: kube-prometheus-stack
+spec:
+  selector:
+    matchLabels:
+      app: event-album-api
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 15s
+---
+# Worker: no Service (nothing calls it), so scrape the pods directly on port "metrics".
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: worker
+  labels:
+    release: kube-prometheus-stack
+spec:
+  selector:
+    matchLabels:
+      app: event-album-worker
+  podMetricsEndpoints:
+    - port: metrics
+      path: /metrics
+      interval: 15s
